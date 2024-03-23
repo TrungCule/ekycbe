@@ -6,6 +6,7 @@ import java.util.Optional;
 import org.springframework.data.domain.*;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 import vnpay.com.vn.domain.User;
 
@@ -14,10 +15,13 @@ import vnpay.com.vn.domain.User;
  */
 @Repository
 public interface UserRepository extends JpaRepository<User, Long> {
-    Optional<User> findOneByActivationKey(String activationKey);
-    List<User> findAllByActivatedIsFalseAndActivationKeyIsNotNullAndCreatedDateBefore(Instant dateTime);
+
+    List<User> findAllByActivatedIsFalseAndCreatedDateBefore(Instant dateTime);
+
     Optional<User> findOneByResetKey(String resetKey);
+
     Optional<User> findOneByEmailIgnoreCase(String email);
+
     Optional<User> findOneByLogin(String login);
 
     @EntityGraph(attributePaths = "authorities")

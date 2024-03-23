@@ -31,7 +31,6 @@ import vnpay.com.vn.domain.User;
 import vnpay.com.vn.repository.UserRepository;
 import vnpay.com.vn.security.AuthoritiesConstants;
 import vnpay.com.vn.service.MailService;
-import vnpay.com.vn.service.RefreshTokenService;
 import vnpay.com.vn.service.UserService;
 import vnpay.com.vn.service.dto.AdminUserDTO;
 import vnpay.com.vn.service.model.TokenRefreshResponse;
@@ -39,7 +38,6 @@ import vnpay.com.vn.web.rest.errors.BadRequestAlertException;
 import vnpay.com.vn.web.rest.errors.EmailAlreadyUsedException;
 import vnpay.com.vn.web.rest.errors.LoginAlreadyUsedException;
 import vnpay.com.vn.web.rest.errors.TokenRefreshException;
-import vnpay.com.vn.web.rest.vm.TokenVM;
 
 @RestController
 @RequestMapping("/api/admin")
@@ -72,16 +70,12 @@ public class UserController {
 
     private final MailService mailService;
 
-    private final RefreshTokenService refreshTokenService;
-
     public UserController(UserService userService,
                           UserRepository userRepository,
-                          MailService mailService,
-                          RefreshTokenService refreshTokenService) {
+                          MailService mailService) {
         this.userService = userService;
         this.userRepository = userRepository;
         this.mailService = mailService;
-        this.refreshTokenService = refreshTokenService;
     }
 
     /**
@@ -199,28 +193,5 @@ public class UserController {
             .noContent()
             .headers(HeaderUtil.createAlert(applicationName, "A user is deleted with identifier " + login, login))
             .build();
-    }
-
-    @PostMapping("/refresh_token")
-    public ResponseEntity<?> refreshtoken(@Valid @RequestBody TokenVM request) {
-        String requestRefreshToken = request.getRefreshToken();
-
-        return refreshTokenService.findByToken(requestRefreshToken)
-            .map(refreshTokenService::verifyExpiration)
-            .map(RefreshToken::getUser)
-            .map(user -> {
-                long now = (new Date()).getTime();
-                String token = Jwts
-                    .builder()
-                    .setSubject(user.getLogin())
-//                    .claim(AuthoritiesConstants.AUTHORITIES_KEY, user.getAuthorities())
-                    .signWith(SignatureAlgorithm.HS512, AuthoritiesConstants.SECRET)
-                    .setExpiration(new Date(now + AuthoritiesConstants.tokenValidityInMilliseconds))
-                    .compact();
-                ;
-                return ResponseEntity.ok(new TokenRefreshResponse(token, requestRefreshToken));
-            })
-            .orElseThrow(() -> new TokenRefreshException(requestRefreshToken,
-                "Refresh token is not in database!"));
     }
 }
