@@ -31,4 +31,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findOneWithAuthoritiesByEmailIgnoreCase(String email);
 
     Page<User> findAllByIdNotNullAndActivatedIsTrue(Pageable pageable);
+
+    @Query(value = "Select * from jhi_user where login is not null and login like ?1", nativeQuery = true)
+    Page<User> findUsersByTextSearch(String textSearch, Pageable pageable);
 }

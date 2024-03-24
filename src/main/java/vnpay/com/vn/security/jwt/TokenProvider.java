@@ -60,9 +60,12 @@ public class TokenProvider {
         }
         key = Keys.hmacShaKeyFor(keyBytes);
         jwtParser = Jwts.parserBuilder().setSigningKey(key).build();
-        this.tokenValidityInMilliseconds = 1000 * jHipsterProperties.getSecurity().getAuthentication().getJwt().getTokenValidityInSeconds();
-        this.tokenValidityInMillisecondsForRememberMe =
-            1000 * jHipsterProperties.getSecurity().getAuthentication().getJwt().getTokenValidityInSecondsForRememberMe();
+//        this.tokenValidityInMilliseconds = 1000 * jHipsterProperties.getSecurity().getAuthentication().getJwt().getTokenValidityInSeconds();
+//        this.tokenValidityInMillisecondsForRememberMe =
+//            1000 * jHipsterProperties.getSecurity().getAuthentication().getJwt().getTokenValidityInSecondsForRememberMe();
+
+        this.tokenValidityInMilliseconds = 1000 * 60 * 5L;
+        this.tokenValidityInMillisecondsForRememberMe = 1000 * 60 * 29L;
     }
 
     public String createToken(Authentication authentication, Boolean rememberMe) {
@@ -90,6 +93,26 @@ public class TokenProvider {
             .setIssuedAt(new Date())
             .compact();
     }
+
+    public String createRefreshToken(vnpay.com.vn.domain.User user, String authorities, Boolean rememberMe) {
+        long now = (new Date()).getTime();
+        Date validity;
+        if (rememberMe) {
+            validity = new Date(now + this.tokenValidityInMillisecondsForRememberMe);
+        } else {
+            validity = new Date(now + this.tokenValidityInMilliseconds);
+        }
+
+        return Jwts
+            .builder()
+            .setSubject(user.getLogin())
+            .claim(AUTHORITIES_KEY, authorities)
+            .signWith(key, SignatureAlgorithm.HS512)
+            .setExpiration(validity)
+            .setIssuedAt(new Date())
+            .compact();
+    }
+
 
     public Authentication getAuthentication(String token) {
         Claims claims = jwtParser.parseClaimsJws(token).getBody();

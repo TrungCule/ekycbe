@@ -56,8 +56,7 @@ public class AdminUserDTO implements Serializable {
     private Instant resetDate = null;
 
 
-    private Set<String> authorities;
-
+    private Set<String> authorities; // ['ROLE_USER','ROLE_ADMIN']
     public AdminUserDTO() {
         // Empty constructor needed for Jackson.
     }

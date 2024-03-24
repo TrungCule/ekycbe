@@ -14,6 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpHeaders;
@@ -193,5 +194,24 @@ public class UserController {
             .noContent()
             .headers(HeaderUtil.createAlert(applicationName, "A user is deleted with identifier " + login, login))
             .build();
+    }
+
+    /**
+     * {@code GET /admin/users/search} : get all users with all the details - calling this are only allowed for the administrators.
+     *
+     * @param pageable the pagination information.
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body all users.
+     */
+    @GetMapping("/users/search")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
+    public ResponseEntity<List<AdminUserDTO>> getUsersSearch(String textSearch) {
+        log.debug("REST request to get all User for an admin");
+        Pageable pageable = PageRequest.of(0, 1000);
+        if (!onlyContainsAllowedProperties(pageable)) {
+            return ResponseEntity.badRequest().build();
+        }
+        final Page<AdminUserDTO> page = userService.getUsersByTextSearch(pageable, textSearch);
+        HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(), page);
+        return new ResponseEntity<>(page.getContent(), headers, HttpStatus.OK);
     }
 }

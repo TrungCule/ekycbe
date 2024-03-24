@@ -21,6 +21,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 import tech.jhipster.security.RandomUtil;
 import vnpay.com.vn.config.Constants;
 import vnpay.com.vn.domain.Authority;
@@ -56,7 +57,6 @@ public class UserService {
         this.authorityRepository = authorityRepository;
         this.tokenProvider = tokenProvider;
     }
-
 
 
     public Optional<User> completePasswordReset(String newPassword, String key) {
@@ -213,7 +213,6 @@ public class UserService {
 
     /**
      * Update basic information (first name, last name, email, language) for the current user.
-     *
      */
     public void updateUserNormal(AdminUserDTO userDTO) {
         SecurityUtils
@@ -285,6 +284,7 @@ public class UserService {
 
     /**
      * Gets a list of all the authorities.
+     *
      * @return a list of all the authorities.
      */
     @Transactional(readOnly = true)
@@ -292,7 +292,7 @@ public class UserService {
         return authorityRepository.findAll().stream().map(Authority::getName).collect(Collectors.toList());
     }
 
-    public Optional<User> getUserByUserName(String userName){
+    public Optional<User> getUserByUserName(String userName) {
         return userRepository.findOneByLogin(userName);
     }
 
@@ -300,8 +300,17 @@ public class UserService {
         Authentication authentication = tokenProvider.getAuthentication(token);
         Object principal = authentication.getPrincipal();
         ObjectMapper objectMapper = new ObjectMapper();
-        objectMapper.configure(DeserializationFeature.FAIL_ON_IGNORED_PROPERTIES,false);
+        objectMapper.configure(DeserializationFeature.FAIL_ON_IGNORED_PROPERTIES, false);
         Map map = objectMapper.convertValue(principal, Map.class);
         return userRepository.findOneWithAuthoritiesByLogin(map.get("username").toString());
     }
+
+    @Transactional(readOnly = true)
+    public Page<AdminUserDTO> getUsersByTextSearch(Pageable pageable, String textSearch) {
+        if (!StringUtils.isEmpty(textSearch)) {
+            return userRepository.findUsersByTextSearch("%" + textSearch + "%", pageable).map(AdminUserDTO::new);
+        }
+        return userRepository.findAll(pageable).map(AdminUserDTO::new);
+    }
+
 }
