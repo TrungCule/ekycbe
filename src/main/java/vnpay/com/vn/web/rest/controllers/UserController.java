@@ -4,12 +4,12 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.*;
 import java.util.Collections;
-import java.util.stream.Collectors;
 import javax.validation.Valid;
 import javax.validation.constraints.Pattern;
 
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import org.modelmapper.ModelMapper;
+import org.modelmapper.convention.MatchingStrategies;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -27,18 +27,16 @@ import tech.jhipster.web.util.HeaderUtil;
 import tech.jhipster.web.util.PaginationUtil;
 import tech.jhipster.web.util.ResponseUtil;
 import vnpay.com.vn.config.Constants;
-import vnpay.com.vn.domain.RefreshToken;
 import vnpay.com.vn.domain.User;
 import vnpay.com.vn.repository.UserRepository;
 import vnpay.com.vn.security.AuthoritiesConstants;
 import vnpay.com.vn.service.MailService;
+import vnpay.com.vn.service.UserRedisService;
 import vnpay.com.vn.service.UserService;
 import vnpay.com.vn.service.dto.AdminUserDTO;
-import vnpay.com.vn.service.model.TokenRefreshResponse;
 import vnpay.com.vn.web.rest.errors.BadRequestAlertException;
 import vnpay.com.vn.web.rest.errors.EmailAlreadyUsedException;
 import vnpay.com.vn.web.rest.errors.LoginAlreadyUsedException;
-import vnpay.com.vn.web.rest.errors.TokenRefreshException;
 
 @RestController
 @RequestMapping("/api/admin")
@@ -66,15 +64,18 @@ public class UserController {
     private String applicationName;
 
     private final UserService userService;
+    private final UserRedisService userRedisService;
 
     private final UserRepository userRepository;
 
     private final MailService mailService;
 
     public UserController(UserService userService,
+                          UserRedisService userRedisService,
                           UserRepository userRepository,
                           MailService mailService) {
         this.userService = userService;
+        this.userRedisService = userRedisService;
         this.userRepository = userRepository;
         this.mailService = mailService;
     }
@@ -125,7 +126,7 @@ public class UserController {
      */
     @PutMapping("/users")
     @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
-    public ResponseEntity<AdminUserDTO> updateUser(@Valid @RequestBody AdminUserDTO userDTO) {
+    public ResponseEntity<AdminUserDTO> updateUser(@Valid @RequestBody AdminUserDTO userDTO) throws JsonProcessingException {
         log.debug("REST request to update User : {}", userDTO);
         Optional<User> existingUser = userRepository.findOneByEmailIgnoreCase(userDTO.getEmail());
         if (existingUser.isPresent() && (!existingUser.get().getId().equals(userDTO.getId()))) {
@@ -136,6 +137,13 @@ public class UserController {
             throw new LoginAlreadyUsedException();
         }
         Optional<AdminUserDTO> updatedUser = userService.updateUser(userDTO);
+
+        User user = new User();
+        ModelMapper modelMapper = new ModelMapper();
+        modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
+        modelMapper.map(updatedUser, user);
+        userRedisService.deleteUserRedis(user.getLogin());
+        userRedisService.saveUserIntoRedis(user);
 
         return ResponseUtil.wrapOrNotFound(
             updatedUser,
@@ -190,6 +198,7 @@ public class UserController {
     public ResponseEntity<Void> deleteUser(@PathVariable @Pattern(regexp = Constants.LOGIN_REGEX) String login) {
         log.debug("REST request to delete User: {}", login);
         userService.deleteUser(login);
+        userRedisService.deleteUserRedis(login);
         return ResponseEntity
             .noContent()
             .headers(HeaderUtil.createAlert(applicationName, "A user is deleted with identifier " + login, login))

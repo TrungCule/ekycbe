@@ -296,15 +296,6 @@ public class UserService {
         return userRepository.findOneByLogin(userName);
     }
 
-    public Optional<User> getUserFromToken(String token) throws Exception {
-        Authentication authentication = tokenProvider.getAuthentication(token);
-        Object principal = authentication.getPrincipal();
-        ObjectMapper objectMapper = new ObjectMapper();
-        objectMapper.configure(DeserializationFeature.FAIL_ON_IGNORED_PROPERTIES, false);
-        Map map = objectMapper.convertValue(principal, Map.class);
-        return userRepository.findOneWithAuthoritiesByLogin(map.get("username").toString());
-    }
-
     @Transactional(readOnly = true)
     public Page<AdminUserDTO> getUsersByTextSearch(Pageable pageable, String textSearch) {
         if (!StringUtils.isEmpty(textSearch)) {
@@ -313,4 +304,39 @@ public class UserService {
         return userRepository.findAll(pageable).map(AdminUserDTO::new);
     }
 
+    public User registerUserTest(AdminUserDTO userDTO, String password) {
+        User newUser = new User();
+        String encryptedPassword = passwordEncoder.encode(password);
+        newUser.setLogin(userDTO.getLogin().toLowerCase());
+        // new user gets initially a generated password
+        newUser.setPassword(encryptedPassword);
+        newUser.setFirstName(userDTO.getFirstName());
+        newUser.setLastName(userDTO.getLastName());
+        if (userDTO.getEmail() != null) {
+            newUser.setEmail(userDTO.getEmail().toLowerCase());
+        }
+        newUser.setPhoneNumber(userDTO.getPhoneNumber());
+        newUser.setAddress(userDTO.getAddress());
+        newUser.setDateOfBirth(userDTO.getDateOfBirth());
+        newUser.setRetypePassword(userDTO.getRetypePassword());
+        // new user is not active
+        newUser.setActivated(true);
+        // new user gets registration key
+        Set<Authority> authorities = new HashSet<>();
+        authorityRepository.findById(AuthoritiesConstants.USER).ifPresent(authorities::add);
+        newUser.setAuthorities(authorities);
+        return newUser;
+    }
+
+    public Optional<User> activateRegistration(String key) {
+        log.debug("Activating user for activation key {}", key);
+        return userRepository
+            .findOneByResetKey(key)
+            .map(user -> {
+                // activate given user for the registration key.
+                user.setActivated(true);
+                log.debug("Activated user: {}", user);
+                return user;
+            });
+    }
 }

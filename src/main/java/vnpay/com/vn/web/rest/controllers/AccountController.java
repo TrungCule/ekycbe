@@ -4,16 +4,20 @@ import java.util.*;
 import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
 
+import io.netty.util.internal.ObjectUtil;
+import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import vnpay.com.vn.domain.Authority;
 import vnpay.com.vn.domain.User;
 import vnpay.com.vn.repository.UserRepository;
 import vnpay.com.vn.security.SecurityUtils;
 import vnpay.com.vn.service.MailService;
+import vnpay.com.vn.service.UserRedisService;
 import vnpay.com.vn.service.UserService;
 import vnpay.com.vn.service.dto.AdminUserDTO;
 import vnpay.com.vn.service.model.MessageBase;
@@ -45,11 +49,13 @@ public class AccountController {
     private final UserService userService;
 
     private final MailService mailService;
+    private final UserRedisService userRedisService;
 
-    public AccountController(UserRepository userRepository, UserService userService, MailService mailService) {
+    public AccountController(UserRepository userRepository, UserService userService, MailService mailService, UserRedisService userRedisService) {
         this.userRepository = userRepository;
         this.userService = userService;
         this.mailService = mailService;
+        this.userRedisService = userRedisService;
     }
 
     /**
@@ -61,28 +67,29 @@ public class AccountController {
      * @throws LoginAlreadyUsedException {@code 400 (Bad Request)} if the login is already used.
      */
     @PostMapping("/register")
-//    @ResponseStatus(HttpStatus.CREATED)
+    @ResponseStatus(HttpStatus.CREATED)
     public void registerAccount(@Valid @RequestBody ManagedUserVM managedUserVM) {
         if (isPasswordLengthInvalid(managedUserVM.getPassword())) {
             throw new InvalidPasswordException();
         }
         User user = userService.registerUser(managedUserVM, managedUserVM.getPassword());
+//        User user = userService.registerUserTest(managedUserVM, managedUserVM.getPassword());
         mailService.sendActivationEmail(user);
     }
 
-//    /**
-//     * {@code GET  /activate} : activate the registered user.
-//     *
-//     * @param key the activation key.
-//     * @throws RuntimeException {@code 500 (Internal Server Error)} if the user couldn't be activated.
-//     */
-//    @GetMapping("/activate")
-//    public void activateAccount(@RequestParam(value = "key") String key) {
-//        Optional<User> user = userService.activateRegistration(key);
-//        if (!user.isPresent()) {
-//            throw new AccountResourceException("No user was found for this activation key");
-//        }
-//    }
+    /**
+     * {@code GET  /activate} : activate the registered user.
+     *
+     * @param key the activation key.
+     * @throws RuntimeException {@code 500 (Internal Server Error)} if the user couldn't be activated.
+     */
+    @GetMapping("/activate")
+    public void activateAccount(@RequestParam(value = "key") String key) {
+        Optional<User> user = userService.activateRegistration(key);
+        if (!user.isPresent()) {
+            throw new AccountResourceException("No user was found for this activation key");
+        }
+    }
 
     /**
      * {@code GET  /authenticate} : check if the user is authenticated, and return its login.
@@ -158,7 +165,7 @@ public class AccountController {
         if (!StringUtils.isEmpty(mail.getEmail())) {
             Optional<User> user = userService.requestPasswordReset(mail.getEmail());
             if (user.isPresent()) {
-//            mailService.sendPasswordResetMail(user.get());
+                mailService.sendPasswordResetMail(user.get());
                 return new ResponseEntity<>(user.get(), HttpStatus.OK);
             } else {
                 // Pretend the request has been successful to prevent checking which emails really exist
@@ -200,16 +207,29 @@ public class AccountController {
     public ResponseEntity<?> getUser(HttpServletRequest request) {
         log.debug("REST request to check if the current user is authenticated");
         MessageBase messageBase = new MessageBase();
+        Set<Authority> authorities = new HashSet<>();
         try {
-            String token = request.getHeader("Authorization").substring(7);
-            Optional<User> user = userService.getUserFromToken(token);
-            if (user.isPresent()) {
-                UserResp userResp = new UserResp();
-                userResp.setUser(user.get());
-                userResp.setAuthorities(user.get().getAuthorities());
-                messageBase.setData(userResp);
-                return new ResponseEntity<>(messageBase, HttpStatus.OK);
+            String userLogin = SecurityUtils
+                .getCurrentUserLogin()
+                .orElseThrow(() -> new AccountResourceException("Current user login not found"));
+            User user = new User();
+            user = userRedisService.findUserByUserLogin(userLogin);
+            if (!ObjectUtils.isEmpty(user)) {
+                authorities = user.getAuthorities();
+            } else {
+                Optional<User> userOps = userService.getUserWithAuthoritiesByLogin(userLogin);
+                if (userOps.isPresent()) {
+                    user = userOps.get();
+                    authorities = userOps.get().getAuthorities();
+                    userRedisService.saveUserIntoRedis(user);
+                }
             }
+
+            UserResp userResp = new UserResp();
+            userResp.setUser(user);
+            userResp.setAuthorities(authorities);
+            messageBase.setData(userResp);
+            return new ResponseEntity<>(messageBase, HttpStatus.OK);
         } catch (Exception e) {
         }
         return new ResponseEntity<>(messageBase, HttpStatus.BAD_REQUEST);
