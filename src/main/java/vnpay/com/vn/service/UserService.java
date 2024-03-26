@@ -1,20 +1,23 @@
 package vnpay.com.vn.service;
 
-import java.security.Principal;
+import java.io.ByteArrayOutputStream;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import antlr.Token;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.JwtParser;
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.ss.util.CellRangeAddress;
+import org.apache.poi.ss.util.CellUtil;
+import org.apache.poi.xssf.streaming.SXSSFSheet;
+import org.apache.poi.xssf.streaming.SXSSFWorkbook;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.core.Authentication;
@@ -23,7 +26,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import tech.jhipster.security.RandomUtil;
-import vnpay.com.vn.config.Constants;
 import vnpay.com.vn.domain.Authority;
 import vnpay.com.vn.domain.User;
 import vnpay.com.vn.repository.AuthorityRepository;
@@ -31,8 +33,10 @@ import vnpay.com.vn.repository.UserRepository;
 import vnpay.com.vn.security.AuthoritiesConstants;
 import vnpay.com.vn.security.SecurityUtils;
 import vnpay.com.vn.security.jwt.TokenProvider;
-import vnpay.com.vn.service.dto.AdminUserDTO;
-import vnpay.com.vn.service.dto.UserDTO;
+import vnpay.com.vn.service.Utils.Utils;
+import vnpay.com.vn.service.dto.*;
+import vnpay.com.vn.service.util.ExcelConstant;
+import vnpay.com.vn.service.util.FastExcelUtils;
 
 /**
  * Service class for managing users.
@@ -311,6 +315,84 @@ public class UserService {
             return userRepository.findUsersByTextSearch("%" + textSearch + "%", pageable).map(AdminUserDTO::new);
         }
         return userRepository.findAll(pageable).map(AdminUserDTO::new);
+    }
+
+    public byte[] getExcelFile(SearchDTO searchDTO) {
+        Pageable pageable = PageRequest.of(0, 1000);
+        Page<User> usersPage = userRepository.findUsersByTextSearch("%" + searchDTO.getTextSearch() + "%", pageable);
+        List<User> users = usersPage.getContent();
+            if (users.size() == 0) {
+                users.add(new User());
+                users.add(new User());
+                users.add(new User());
+            }
+
+           ByteArrayOutputStream bos = new ByteArrayOutputStream();
+            try {
+                SXSSFWorkbook workbook = new SXSSFWorkbook();
+                List<CellStyle> cellStyleList = FastExcelUtils.getCellStyleList(workbook);
+                SXSSFSheet sheet = workbook.createSheet("Sheet 1");
+
+                List<HeaderConfig> headerConfig = ExcelConstant.AccountingObject.HeaderConfig;
+                List<FieldConfig> fieldConfig = ExcelConstant.AccountingObject.FieldConfig;
+
+                // Set Thông tin cơ cấu tổ chức, tên mẫu
+                FastExcelUtils.SetHeaderExcel(
+                    sheet,
+                    fieldConfig.size(),
+                    cellStyleList,
+                    "DANH SÁCH NGƯỜI DÙNG EKYC"
+                );
+//                set peried
+                Date date = new Date();
+                LocalDate localDate = date.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDate();
+
+                String period = Utils.getPeriod(localDate, localDate);
+                Row rowDate = sheet.createRow(6);
+                Cell cellRowDate = rowDate.createCell(0);
+                cellRowDate.setCellStyle(cellStyleList.get(2));
+                cellRowDate.setCellValue(period);
+                CellUtil.setAlignment(cellRowDate, org.apache.poi.ss.usermodel.HorizontalAlignment.CENTER);
+                sheet.addMergedRegion(new CellRangeAddress(6, 6, 0, fieldConfig.size() - 1));
+
+                int startRow = 12;
+
+                FastExcelUtils.genBodyDynamicReportExcel(sheet, fieldConfig, headerConfig, users, startRow, cellStyleList);
+
+                startRow = startRow + users.size();
+                sheet.addMergedRegion(new CellRangeAddress(startRow, startRow, 0, 2));
+//                Row rowTotal = sheet.getRow(startRow);
+//                CellStyle rightAligned = cellStyleList.get(1);
+//                CellStyle cellStyleNumber = cellStyleList.get(6);
+//                rightAligned.setAlignment(HorizontalAlignment.RIGHT);
+//                for (int i = 0; i < 8; i++) {
+//                    Cell cellTotal = rowTotal.getCell(i);
+//                    cellTotal.setCellStyle(cellStyleNumber);
+//                    if (i == 0) {
+//                        cellTotal.setCellStyle(rightAligned);
+//                        cellTotal.setCellStyle(cellStyleList.get(1));
+//                        cellTotal.setCellValue("Tổng cộng");
+//                        CellUtil.setAlignment(cellTotal, org.apache.poi.ss.usermodel.HorizontalAlignment.CENTER);
+//                    }
+//                }
+
+                FastExcelUtils.SetFooterExcel(sheet, startRow + 1, fieldConfig.size(), cellStyleList);
+                sheet.trackAllColumnsForAutoSizing();
+
+                for (int c = 0; c < fieldConfig.size(); c++) {
+                    sheet.autoSizeColumn(c, true);
+                    if (sheet.getColumnWidth(c) > (45 * 256)) {
+                        sheet.setColumnWidth(c, 45 * 256);
+                    } else if (sheet.getColumnWidth(c) < (8 * 256)) {
+                        sheet.setColumnWidth(c, 8 * 256);
+                    }
+                }
+                workbook.write(bos);
+                workbook.close();
+            } catch (Exception ex) {
+                System.out.println(ex.getMessage());
+            }
+            return bos.toByteArray();
     }
 
 }
