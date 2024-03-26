@@ -83,7 +83,7 @@ public class User extends AbstractAuditingEntity<Long> implements Serializable {
     @Column(name = "reset_date")
     private Instant resetDate = null;
 
-    @JsonIgnore
+//    @JsonIgnore
     @ManyToMany
     @JoinTable(
         name = "jhi_user_authority",
@@ -92,6 +92,25 @@ public class User extends AbstractAuditingEntity<Long> implements Serializable {
     )
     @BatchSize(size = 20)
     private Set<Authority> authorities = new HashSet<>();
+
+    public User(){
+    }
+    public User(Long id, String login, String password, String firstName, String lastName, String email, String retypePassword, String phoneNumber, String address, Instant dateOfBirth, boolean activated, String resetKey, Instant resetDate, Set<Authority> authorities) {
+        this.id = id;
+        this.login = login;
+        this.password = password;
+        this.firstName = firstName;
+        this.lastName = lastName;
+        this.email = email;
+        this.retypePassword = retypePassword;
+        this.phoneNumber = phoneNumber;
+        this.address = address;
+        this.dateOfBirth = dateOfBirth;
+        this.activated = activated;
+        this.resetKey = resetKey;
+        this.resetDate = resetDate;
+        this.authorities = authorities;
+    }
 
     public Long getId() {
         return id;
