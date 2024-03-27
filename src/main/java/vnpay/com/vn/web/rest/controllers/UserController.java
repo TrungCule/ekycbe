@@ -1,5 +1,6 @@
 package vnpay.com.vn.web.rest.controllers;
 
+import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.*;
@@ -11,6 +12,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.commons.lang3.StringUtils;
 import org.modelmapper.ModelMapper;
 import org.modelmapper.convention.MatchingStrategies;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.SignatureAlgorithm;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -20,6 +23,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -35,6 +39,8 @@ import vnpay.com.vn.service.MailService;
 import vnpay.com.vn.service.UserRedisService;
 import vnpay.com.vn.service.UserService;
 import vnpay.com.vn.service.dto.AdminUserDTO;
+import vnpay.com.vn.service.dto.SearchDTO;
+import vnpay.com.vn.service.model.TokenRefreshResponse;
 import vnpay.com.vn.web.rest.errors.BadRequestAlertException;
 import vnpay.com.vn.web.rest.errors.EmailAlreadyUsedException;
 import vnpay.com.vn.web.rest.errors.LoginAlreadyUsedException;
@@ -224,5 +230,15 @@ public class UserController {
         final Page<AdminUserDTO> page = userService.getUsersByTextSearch(pageable, textSearch);
         HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(), page);
         return new ResponseEntity<>(page.getContent(), headers, HttpStatus.OK);
+    }
+
+    @PostMapping("/users/export-excel")
+    public ResponseEntity<byte[]> exportAccountingObject(@RequestBody SearchDTO searchDTO) throws IOException {
+        byte[] export = userService.getExcelFile(searchDTO);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType("application/vnd.ms-excel"));
+        headers.setContentDispositionFormData("error", "error.xlsx");
+        return new ResponseEntity<>(export, headers, HttpStatus.OK);
     }
 }
