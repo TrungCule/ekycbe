@@ -35,6 +35,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query(value = "Select * from jhi_user where login is not null and login like ?1", nativeQuery = true)
     Page<User> findUsersByTextSearch(String textSearch, Pageable pageable);
 
-    @Query(value = "Select * from jhi_user where :textSearch is null or login like :textSearch", nativeQuery = true)
+    @Query(value = "Select * from jhi_user where ?1 is null or login like ?1", nativeQuery = true)
     Page<User> findAllUsersByTextSearch(String textSearch, Pageable pageable);
 }

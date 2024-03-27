@@ -27,7 +27,7 @@ public interface ExcelConstant {
             new FieldConfig("email", "String", "text-left"),
             new FieldConfig("dateOfBirth", "String", "text-center"),
             new FieldConfig("address", "String", "text-left"),
-            new FieldConfig("phoneNumber", "String", "text-left"),
+            new FieldConfig("phoneNumber", "String", "text-right"),
             new FieldConfig("activated", "String", "text-center")
         );
     }

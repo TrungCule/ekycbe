@@ -346,8 +346,8 @@ public class UserService {
             });
     }
     public byte[] getExcelFile(SearchDTO searchDTO) {
-        Pageable pageable = PageRequest.of(0, 1000);
-        Page<User> usersPage = userRepository.findUsersByTextSearch("%" + searchDTO.getTextSearch() + "%", pageable);
+        Pageable pageable = PageRequest.of(searchDTO.getPageNumber(), searchDTO.getPageSize());
+        Page<User> usersPage = userRepository.findAllUsersByTextSearch("%" + searchDTO.getTextSearch() + "%", pageable);
         List<User> users = usersPage.getContent();
             if (users.size() == 0) {
                 users.add(new User());
