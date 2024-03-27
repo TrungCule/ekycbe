@@ -8,6 +8,7 @@ import javax.validation.Valid;
 import javax.validation.constraints.Pattern;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import org.apache.commons.lang3.StringUtils;
 import org.modelmapper.ModelMapper;
 import org.modelmapper.convention.MatchingStrategies;
 import org.slf4j.Logger;
@@ -142,9 +143,10 @@ public class UserController {
         ModelMapper modelMapper = new ModelMapper();
         modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
         modelMapper.map(updatedUser, user);
-        userRedisService.deleteUserRedis(user.getLogin());
-        userRedisService.saveUserIntoRedis(user);
-
+        if (!StringUtils.isEmpty(user.getLogin())) {
+            userRedisService.deleteUserRedis(user.getLogin());
+            userRedisService.saveUserIntoRedis(user);
+        }
         return ResponseUtil.wrapOrNotFound(
             updatedUser,
             HeaderUtil.createAlert(applicationName, "A user is updated with identifier " + userDTO.getLogin(), userDTO.getLogin())

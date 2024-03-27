@@ -28,9 +28,6 @@ import vnpay.com.vn.web.rest.vm.KeyAndPasswordVM;
 import vnpay.com.vn.web.rest.vm.MailVM;
 import vnpay.com.vn.web.rest.vm.ManagedUserVM;
 
-/**
- * REST controller for managing the current user's account.
- */
 @RestController
 @RequestMapping("/api")
 public class AccountController {
@@ -73,7 +70,6 @@ public class AccountController {
             throw new InvalidPasswordException();
         }
         User user = userService.registerUser(managedUserVM, managedUserVM.getPassword());
-//        User user = userService.registerUserTest(managedUserVM, managedUserVM.getPassword());
         mailService.sendActivationEmail(user);
     }
 

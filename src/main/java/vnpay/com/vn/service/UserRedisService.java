@@ -3,6 +3,7 @@ package vnpay.com.vn.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.apache.commons.lang3.ObjectUtils;
 import org.springframework.stereotype.Service;
 import vnpay.com.vn.domain.User;
@@ -19,6 +20,7 @@ public class UserRedisService {
 
     public User findUserByUserLogin(String username) throws JsonProcessingException {
         ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.registerModule(new JavaTimeModule());
         objectMapper.configure(DeserializationFeature.FAIL_ON_IGNORED_PROPERTIES, false);
         Object object = redisRepositoryImpl.findUserByUserLogin(username);
         if(!ObjectUtils.isEmpty(object)) {
